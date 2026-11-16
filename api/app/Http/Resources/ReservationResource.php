@@ -14,6 +14,18 @@ class ReservationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        return [
+            'id' => $this->id,
+            'quantity' => $this->quantity,
+            'created_at' => $this->created_at,
+            'user' => $this->whenLoaded('user', fn () => [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+            ]),
+            'ticket' => $this->whenLoaded('ticket', fn () => [
+                'id' => $this->ticket->id,
+                'name' => $this->ticket->name,
+            ]),
+        ];
     }
 }

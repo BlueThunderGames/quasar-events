@@ -14,6 +14,16 @@ class TicketResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        $reserved = (int) ($this->reserved ?? 0);
+
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'description' => $this->description,
+            'quantity' => $this->quantity,
+            'reserved' => $reserved,
+            'remaining' => max($this->quantity - $reserved, 0),
+            'reservations' => ReservationResource::collection($this->whenLoaded('reservations')),
+        ];
     }
 }
