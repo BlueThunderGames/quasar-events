@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -18,11 +19,11 @@ class AuthController extends Controller
         ]);
 
         $user = User::create($data);
-        $token = $user->createToken('api')->plainTextToken;
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-        ], 201);
+
+        return (new UserResource($user))
+            ->additional(['token' => $user->createToken('api')->plainTextToken])
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function login(Request $request)
@@ -38,10 +39,10 @@ class AuthController extends Controller
                 'email' => ['The provided credentials are incorrect.'],
             ]);
         }
-        return response()->json([
-            'user' => $user,
-            'token' => $user->createToken('api')->plainTextToken,
-        ]);
+        $user->tokens()->delete();
+
+        return (new UserResource($user))
+            ->additional(['token' => $user->createToken('api')->plainTextToken]);
     }
 
     public function logout(Request $request)

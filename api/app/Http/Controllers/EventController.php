@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\EventResource;
+use App\Http\Resources\ReservationResource;
 use App\Models\Event;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ class EventController extends Controller
     {
         $events = Event::query()
             ->orderBy('starts_at')
-            ->paginate(40);
+            ->paginate(12);
 
         return EventResource::collection($events);
     }
@@ -23,10 +24,19 @@ class EventController extends Controller
     {
         $event->load([
             'tickets' => fn (HasMany $tickets) => $tickets->withSum('reservations as reserved', 'quantity'),
-            'reservations.user',
-            'reservations.ticket',
         ]);
+        $event->loadCount('reservations');
 
         return new EventResource($event);
+    }
+
+    public function reservations(Event $event): AnonymousResourceCollection
+    {
+        $reservations = $event->reservations()
+            ->with(['user:id,name', 'ticket:id,name'])
+            ->latest()
+            ->paginate(20);
+
+        return ReservationResource::collection($reservations);
     }
 }

@@ -23,6 +23,7 @@ class EventResource extends JsonResource
             'starts_at' => $this->starts_at,
             'ends_at' => $this->ends_at,
             'tickets' => TicketResource::collection($this->whenLoaded('tickets')),
+            'reservations_count' => $this->whenCounted('reservations'),
             'reservations' => ReservationResource::collection($this->whenLoaded('reservations')),
         ];
     }
