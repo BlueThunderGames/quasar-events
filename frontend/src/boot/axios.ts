@@ -1,4 +1,5 @@
 import { defineBoot } from "#q-app";
+import { useAuthStore } from "@/stores/auth";
 import axios from "axios";
 
 const api = axios.create({
@@ -18,8 +19,21 @@ api.interceptors.request.use(config => {
   return config;
 });
 
-export default defineBoot(({ app }) => {
-  app.config.globalProperties.$api = api;
+export default defineBoot(({ store, router }) => {
+  api.interceptors.response.use(
+    response => response,
+    error => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        useAuthStore(store).clear();
+
+        if (router.currentRoute.value.meta.requiresAuth) {
+          void router.push("/login");
+        }
+      }
+
+      return Promise.reject(error);
+    }
+  );
 });
 
 export { api };

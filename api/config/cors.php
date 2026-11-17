@@ -20,7 +20,7 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['traceparent'],
 
     'max_age' => 0,
 
