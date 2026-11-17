@@ -10,6 +10,7 @@
 
         <div v-if="auth.user" class="row items-center q-gutter-sm">
           <span>{{ auth.user.name }}</span>
+          <q-btn flat no-caps label="My reservations" to="/reservations" />
           <q-btn flat no-caps label="Log out" :loading="loggingOut" @click="onLogout" />
         </div>
         <div v-else class="row items-center q-gutter-sm">

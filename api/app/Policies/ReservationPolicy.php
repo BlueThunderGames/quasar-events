@@ -45,7 +45,7 @@ class ReservationPolicy
      */
     public function delete(User $user, Reservation $reservation): bool
     {
-        return false;
+        return $user->id === $reservation->user_id;
     }
 
     /**

@@ -17,6 +17,10 @@
         <div class="text-grey-8 q-mt-xs">{{ event.location }}</div>
         <p class="q-mt-md">{{ event.description }}</p>
 
+        <q-banner v-if="reservedMessage" class="bg-green-1 text-positive q-mb-md" rounded>
+          {{ reservedMessage }}
+        </q-banner>
+
         <q-tabs v-model="tab" align="left" active-color="primary" indicator-color="primary">
           <q-tab name="tickets" label="Tickets" no-caps />
           <q-tab name="reservations" :label="`Reservations (${event.reservations_count ?? 0})`" no-caps />
@@ -31,10 +35,40 @@
                 <q-item-section>
                   <q-item-label>{{ ticket.name }}</q-item-label>
                   <q-item-label caption>{{ ticket.description }}</q-item-label>
+                  <div v-if="ticketErrors[ticket.id]" class="text-negative q-mt-xs">
+                    {{ ticketErrors[ticket.id] }}
+                  </div>
                 </q-item-section>
-                <q-item-section side>
-                  <q-item-label>{{ ticket.remaining }} left</q-item-label>
-                  <q-item-label caption>{{ ticket.reserved }} of {{ ticket.quantity }} reserved</q-item-label>
+                <q-item-section side top>
+                  <div class="text-right">
+                    <div>{{ ticket.remaining }} left</div>
+                    <div class="text-caption text-grey-7">
+                      {{ ticket.reserved }} of {{ ticket.quantity }} reserved
+                    </div>
+                  </div>
+                  <div v-if="auth.user && ticket.remaining > 0" class="row items-center q-gutter-sm q-mt-sm">
+                    <q-input
+                      v-model.number="quantities[ticket.id]"
+                      type="number"
+                      dense
+                      outlined
+                      min="1"
+                      :max="ticket.remaining"
+                      style="width: 72px"
+                      aria-label="Quantity"
+                    />
+                    <q-btn
+                      color="primary"
+                      no-caps
+                      label="Reserve"
+                      :loading="reservingId === ticket.id"
+                      @click="reserve(ticket)"
+                    />
+                  </div>
+                  <div v-else-if="!auth.user" class="q-mt-sm">
+                    <router-link to="/login">Log in to reserve</router-link>
+                  </div>
+                  <div v-else class="text-grey-7 q-mt-sm">Sold out</div>
                 </q-item-section>
               </q-item>
             </q-list>
@@ -86,17 +120,26 @@
 </template>
 
 <script setup lang="ts">
+import axios from "axios";
 import { onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { api } from "@/boot/axios";
-import type { EventDetail, Reservation, ReservationPage } from "@/types/event";
+import { useAuthStore } from "@/stores/auth";
+import type { EventDetail, Reservation, ReservationPage, Ticket } from "@/types/event";
+import { fieldError, formError } from "@/utils/api-error";
 import { formatEventDate } from "@/utils/dates";
 
 const route = useRoute();
+const auth = useAuthStore();
 const event = ref<EventDetail | null>(null);
 const loading = ref(true);
 const failed = ref(false);
 const tab = ref("tickets");
+const quantities = ref<Record<number, number>>({});
+const idempotencyKeys = ref<Record<number, string>>({});
+const ticketErrors = ref<Record<number, string>>({});
+const reservingId = ref<number | null>(null);
+const reservedMessage = ref("");
 const reservations = ref<Reservation[]>([]);
 const reservationPage = ref(1);
 const reservationsLoading = ref(false);
@@ -105,14 +148,63 @@ const reservationsHasMore = ref(true);
 
 onMounted(async () => {
   try {
-    const { data } = await api.get<{ data: EventDetail }>(`events/${route.params.id}`);
-    event.value = data.data;
+    await loadEvent();
   } catch {
     failed.value = true;
   } finally {
     loading.value = false;
   }
 });
+
+async function loadEvent() {
+  const { data } = await api.get<{ data: EventDetail }>(`events/${route.params.id}`);
+  event.value = data.data;
+
+  for (const ticket of data.data.tickets ?? []) {
+    if (quantities.value[ticket.id] === undefined) {
+      quantities.value[ticket.id] = 1;
+    }
+  }
+}
+
+async function reserve(ticket: Ticket) {
+  reservingId.value = ticket.id;
+  ticketErrors.value[ticket.id] = "";
+  reservedMessage.value = "";
+  const key = idempotencyKeys.value[ticket.id] ?? crypto.randomUUID();
+  idempotencyKeys.value[ticket.id] = key;
+  const quantity = Math.max(1, Number(quantities.value[ticket.id] || 1));
+
+  try {
+    await api.post(
+      "reservations",
+      { ticket_id: ticket.id, quantity },
+      { headers: { "Idempotency-Key": key } }
+    );
+    delete idempotencyKeys.value[ticket.id];
+    reservedMessage.value = `Reserved ${quantity} ${ticket.name}.`;
+    reservations.value = [];
+    reservationPage.value = 1;
+    reservationsHasMore.value = true;
+    await loadEvent();
+
+    if (tab.value === "reservations") {
+      await loadReservations();
+    }
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      delete idempotencyKeys.value[ticket.id];
+    }
+
+    ticketErrors.value[ticket.id] =
+      fieldError(error, "quantity") ||
+      fieldError(error, "idempotency_key") ||
+      formError(error) ||
+      "Could not reserve those tickets.";
+  } finally {
+    reservingId.value = null;
+  }
+}
 
 watch(tab, value => {
   if (value === "reservations" && reservations.value.length === 0 && reservationsHasMore.value) {

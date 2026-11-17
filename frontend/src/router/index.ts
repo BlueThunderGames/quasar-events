@@ -45,6 +45,10 @@ export default defineRouter(({ store }) => {
     if (to.meta.guest && auth.isAuthenticated) {
       return { path: "/" };
     }
+
+    if (to.meta.requiresAuth && !auth.isAuthenticated) {
+      return { path: "/login" };
+    }
   });
 
   return Router;

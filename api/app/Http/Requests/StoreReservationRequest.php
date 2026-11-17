@@ -12,7 +12,14 @@ class StoreReservationRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return $this->user() !== null;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'idempotency_key' => $this->headers->get('Idempotency-Key'),
+        ]);
     }
 
     /**
@@ -23,7 +30,9 @@ class StoreReservationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'ticket_id' => ['required', 'integer', 'exists:tickets,id'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'idempotency_key' => ['required', 'uuid'],
         ];
     }
 }

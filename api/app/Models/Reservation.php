@@ -14,6 +14,7 @@ class Reservation extends Model
     protected $fillable = [
         'ticket_id',
         'quantity',
+        'idempotency_key',
     ];
 
     public function ticket(): BelongsTo

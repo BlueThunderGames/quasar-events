@@ -22,10 +22,21 @@ class ReservationResource extends JsonResource
                 'id' => $this->user->id,
                 'name' => $this->user->name,
             ]),
-            'ticket' => $this->whenLoaded('ticket', fn () => [
-                'id' => $this->ticket->id,
-                'name' => $this->ticket->name,
-            ]),
+            'ticket' => $this->whenLoaded('ticket', function () {
+                $ticket = [
+                    'id' => $this->ticket->id,
+                    'name' => $this->ticket->name,
+                ];
+
+                if ($this->ticket->relationLoaded('event')) {
+                    $ticket['event'] = [
+                        'id' => $this->ticket->event->id,
+                        'title' => $this->ticket->event->title,
+                    ];
+                }
+
+                return $ticket;
+            }),
         ];
     }
 }

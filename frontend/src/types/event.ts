@@ -28,6 +28,10 @@ export interface Reservation {
   ticket?: {
     id: number;
     name: string;
+    event?: {
+      id: number;
+      title: string;
+    };
   };
 }
 

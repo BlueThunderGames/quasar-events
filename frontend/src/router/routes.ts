@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from "vue-router";
 declare module "vue-router" {
   interface RouteMeta {
     guest?: boolean;
+    requiresAuth?: boolean;
   }
 }
 
@@ -13,6 +14,11 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: "", component: () => import("@/pages/IndexPage.vue") },
       { path: "events/:id", component: () => import("@/pages/EventPage.vue") },
+      {
+        path: "reservations",
+        component: () => import("@/pages/MyReservationsPage.vue"),
+        meta: { requiresAuth: true }
+      },
       {
         path: "login",
         component: () => import("@/pages/LoginPage.vue"),
